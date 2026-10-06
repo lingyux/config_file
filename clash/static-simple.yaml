@@ -190,6 +190,7 @@ proxy-groups:
     type: select
     proxies: [🇸🇬 新加坡节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇺🇸 美国节点]
   - {name: Proxy, type: select, proxies: [🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点, ☛全局手动选择策略组], icon: 'https://raw.githubusercontent.com/pompurin404/mihomo-party/master/resources/icon.png'}
+  - {name: GitHub, type: select, proxies: [SG_Residential, Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/GitHub.png'}
   - {name: Apple, type: select, proxies: [DIRECT, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple_1.png'}
   - {name: Telegram, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png'}
   - {name: Netflix, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Netflix.png'}
@@ -240,10 +241,10 @@ rules:
   - RULE-SET,applemusic_domain,DIRECT
   - RULE-SET,appletv_domain,DIRECT
   - RULE-SET,apple_domain,Apple
+  - RULE-SET,github_domain,GitHub
   - RULE-SET,anthropic,SG_Residential
   - RULE-SET,ai,SG_Residential
   - RULE-SET,proxylite,Proxy
-  - RULE-SET,github_domain,Proxy
   - RULE-SET,youtube_domain,YouTube
   - RULE-SET,google_domain,SG_Residential
   - RULE-SET,onedrive_domain,Microsoft
