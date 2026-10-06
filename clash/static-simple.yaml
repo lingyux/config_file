@@ -185,18 +185,10 @@ proxies:
 
 # 策略组
 proxy-groups:
+  # 复用地区组的 FilterSG / FilterTW / FilterJP / FilterUS 筛选规则。
   - name: Dialer-Res
-    type: url-test
-    hidden: true
-    url: https://www.gstatic.com/generate_204
-    interval: 300
-    tolerance: 50
-    lazy: false
-    include-all: true
-    filter: '(?i)(台湾|台灣|日本|新加坡|美国|美國|韩国|韓國|\b(TW|JP|SG|US|KR)\b)'
-    exclude-filter: '(?i)倍率|IPv6|到期|剩余|官网|失联|故障|香港|\bHK\b'
-    # 没有匹配中转时拒绝连接；可改成一个真实中转节点名，不要填代理组或 DIRECT。
-    empty-fallback: REJECT
+    type: select
+    proxies: [🇸🇬 新加坡节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇺🇸 美国节点]
   - {name: Proxy, type: select, proxies: [🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点, ☛全局手动选择策略组], icon: 'https://raw.githubusercontent.com/pompurin404/mihomo-party/master/resources/icon.png'}
   - {name: Apple, type: select, proxies: [DIRECT, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple_1.png'}
   - {name: Telegram, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png'}
