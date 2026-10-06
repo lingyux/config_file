@@ -162,7 +162,6 @@ FilterUS: &FilterUS '^(?=.*((?i)🇺🇸|美国|波特兰|达拉斯|俄勒冈|�
 FilterUK: &FilterUK '^(?=.*((?i)🇬🇧|英国|伦敦|(\b(UK|United Kingdom)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
 FilterFR: &FilterFR '^(?=.*((?i)🇫🇷|法国|(\b(FR|France)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
 FilterDE: &FilterDE '^(?=.*((?i)🇩🇪|德国|(\b(DE|Germany)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterAI: &FilterAI '^(?=.*((?i)🇹🇼|台湾|(\b(TW|Tai|Taiwan)(\d+)?\b)|🇯🇵|日本|川日|东京|大阪|泉日|埼玉|(\b(JP|Japan)(\d+)?\b)|🇸🇬|新加坡|狮|(\b(SG|Singapore)(\d+)?\b)|🇺🇸|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|(\b(US|United States)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
 FilterGame: &FilterGame '^(?=.*((?i)游戏|🎮|(\b(GAME)(\d+)?\b)))(?!.*((?i)回国|校园)).*$'
 FilterAll: &FilterAll '^(?=.*(.))(?!.*((?i)群|邀请|返利|循环|官网|客服|网站|网址|获取|订阅|流量|到期|机场|下次|版本|官址|备用|过期|已用|联系|邮箱|工单|贩卖|通知|倒卖|防止|国内|地址|频道|无法|说明|使用|提示|特别|访问|支持|教程|关注|更新|作者|加入|(\b(USE|USED|TOTAL|EXPIRE|EMAIL|Panel|Channel|Author)(\d+)?\b|(\d{4}-\d{2}-\d{2}|\dG)))).*$'
 
@@ -174,12 +173,32 @@ HandSelect: &HandSelect {type: select, include-all-providers: true}
 # 锚点 - 规则参数 [每天更新一次订阅规则，更新规则时使用直连策略]
 RuleSet: &RuleSet {type: http, behavior: classical, interval: 86400, format: yaml, proxy: DIRECT}
 
+# 住宅出口：填写真实地址、端口和账号后使用；先经 Dialer-Res 中转。
+proxies:
+  - name: SG_Residential
+    type: http
+    server: "<HOST>"
+    port: 0  # 必须替换为住宅代理的实际端口
+    username: "<USERNAME>"
+    password: "<PASSWORD>"
+    dialer-proxy: Dialer-Res
+
 # 策略组
 proxy-groups:
+  - name: Dialer-Res
+    type: url-test
+    hidden: true
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    lazy: false
+    include-all: true
+    filter: '(?i)(台湾|台灣|日本|新加坡|美国|美國|韩国|韓國|\b(TW|JP|SG|US|KR)\b)'
+    exclude-filter: '(?i)倍率|IPv6|到期|剩余|官网|失联|故障|香港|\bHK\b'
+    # 没有匹配中转时拒绝连接；可改成一个真实中转节点名，不要填代理组或 DIRECT。
+    empty-fallback: REJECT
   - {name: Proxy, type: select, proxies: [🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点, ☛全局手动选择策略组], icon: 'https://raw.githubusercontent.com/pompurin404/mihomo-party/master/resources/icon.png'}
   - {name: Apple, type: select, proxies: [DIRECT, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple_1.png'}
-  - {name: AI, <<: *HandSelect, filter: *FilterAI, icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/ChatGPT.png'}
-  - {name: Claude, <<: *HandSelect, filter: *FilterAI, icon: 'https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/claude.svg'}
   - {name: Telegram, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png'}
   - {name: Netflix, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Netflix.png'}
   - {name: Disney+, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Disney.png'}
@@ -229,12 +248,12 @@ rules:
   - RULE-SET,applemusic_domain,DIRECT
   - RULE-SET,appletv_domain,DIRECT
   - RULE-SET,apple_domain,Apple
-  - RULE-SET,anthropic,Claude
+  - RULE-SET,anthropic,SG_Residential
+  - RULE-SET,ai,SG_Residential
   - RULE-SET,proxylite,Proxy
-  - RULE-SET,ai,AI
   - RULE-SET,github_domain,Proxy
   - RULE-SET,youtube_domain,YouTube
-  - RULE-SET,google_domain,Proxy
+  - RULE-SET,google_domain,SG_Residential
   - RULE-SET,onedrive_domain,Microsoft
   - RULE-SET,microsoft_domain,Microsoft
   - RULE-SET,tiktok_domain,TikTok
@@ -260,7 +279,7 @@ rules:
   - RULE-SET,geolocation-!cn,Proxy
   - RULE-SET,cn_domain,DIRECT
   - RULE-SET,private_ip,DIRECT,no-resolve
-  - RULE-SET,google_ip,Proxy,no-resolve
+  - RULE-SET,google_ip,SG_Residential,no-resolve
   - RULE-SET,netflix_ip,Netflix,no-resolve
   - RULE-SET,telegram_ip,Telegram,no-resolve
   - RULE-SET,cn_ip,DIRECT
