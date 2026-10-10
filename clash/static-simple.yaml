@@ -230,6 +230,7 @@ proxy-groups:
 rules:
   - DOMAIN-SUFFIX,day.app,DIRECT
   - RULE-SET,private_domain,DIRECT
+  - RULE-SET,stripe_domain,SG_Residential
   - DOMAIN-KEYWORD,asmr,☛全局手动选择策略组
   - DOMAIN-SUFFIX,comipo.app,☛全局手动选择策略组
   - RULE-SET,dlsite,☛全局手动选择策略组
@@ -284,6 +285,7 @@ rule-anchor:
   domain: &domain {type: http, interval: 86400, behavior: domain, format: mrs, proxy: Proxy}
   class: &class {type: http, interval: 86400, behavior: classical, format: text, proxy: Proxy}
 rule-providers:
+  stripe_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/stripe.mrs"}
   dlsite: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/dlsite.mrs"}
   private_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"}
   httpdns: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-httpdns-cn.mrs"}
