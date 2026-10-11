@@ -1,0 +1,299 @@
+# OpenClash 专用模板：Fake-IP 混合模式，TCP 转发 + UDP TUN，区域绕过大陆。
+# oc-cn-domain 与 OpenClash 注入的规则集同名，避免两份国内域名集并存。
+# 使用前将 tag_url / wd_url 替换为 Clash YAML 节点订阅地址。
+
+port: 7890
+socks-port: 7891
+mixed-port: 7893
+redir-port: 7892
+tproxy-port: 7895
+
+unified-delay: true
+geodata-mode: false
+geodata-loader: memconservative
+geosite-matcher: succinct
+global-ua: clash.meta
+etag-support: true
+geo-auto-update: false
+geo-update-interval: 24
+tcp-concurrent: true
+find-process-mode: 'off'
+global-client-fingerprint: chrome
+
+keep-alive-interval: 30
+keep-alive-idle: 600
+
+allow-lan: true
+bind-address: "*"
+mode: rule
+log-level: warning
+ipv6: false
+udp: true
+
+external-controller: 0.0.0.0:9090
+
+geox-url:
+  mmdb: 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/country.mmdb'
+
+profile:
+  store-selected: true
+  store-fake-ip: false
+
+sniffer:
+  enable: true
+  force-dns-mapping: true
+  parse-pure-ip: true
+  override-destination: true
+  sniff:
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+    TLS:
+      ports: [443, 8443]
+    QUIC:
+      ports: [443, 8443]
+  force-domain:
+    - +.v2ex.com
+
+  # 内网服务（NAS/摄像头等）多为自签名 TLS，嗅探 + 覆盖目标易导致访问异常
+  skip-dst-address:
+    - 127.0.0.0/8
+    - 192.168.0.0/16
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+
+  skip-domain:
+    - localhost
+    - +.local
+    - +.lan
+    - +.push.apple.com
+    - Mijia Cloud
+    - dlg.io.mi.com
+
+# TCP 转发 + UDP TUN；路由与防火墙由 OpenClash 管理。
+tun:
+  enable: true
+  stack: system
+  device: utun
+  dns-hijack: [127.0.0.1:53]
+  auto-route: false
+  auto-redirect: false
+  auto-detect-interface: false
+  strict-route: false
+
+dns:
+  enable: true
+  cache-algorithm: arc
+  prefer-h3: false
+  use-hosts: true
+  use-system-hosts: true
+  respect-rules: true
+  listen: 0.0.0.0:7874
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter-mode: blacklist
+  default-nameserver:
+    - 119.28.28.28
+    - 119.29.29.29
+    - 223.5.5.5
+  nameserver-policy:
+    'rule-set:oc-cn-domain,games_cn':
+    - https://doh.pub/dns-query
+    - https://sm2.doh.pub/dns-query
+  nameserver:
+    - https://8.8.8.8/dns-query
+    - https://1.1.1.1/dns-query
+  direct-nameserver:
+    - https://223.5.5.5/dns-query
+    - https://1.12.12.12/dns-query
+  proxy-server-nameserver:
+    - https://doh.pub/dns-query
+    - https://dns.cloudflare.com/dns-query
+  fake-ip-filter:
+    # 游戏例外返回真实 IP，保留已有的游戏兼容设置
+    - "rule-set:private_domain,games_cn"
+    - "rule-set:oc-cn-domain"
+    - "+.tencentgames.com"
+    - "+.msftconnecttest.com"
+    - "+.msftncsi.com"
+    - "time.*.com"
+    - "time.*.gov"
+    - "+.ntp.org"
+    - "localhost.ptlogin2.qq.com"
+    - "+.stun.*.*"
+    - "+.stun.*.*.*"
+  direct-nameserver-follow-policy: true
+
+# 锚点 - 节点订阅的参数 [每24小时更新一次订阅节点，每 300 秒一次健康检查]
+NodeParam: &NodeParam {type: http, interval: 86400, health-check: {enable: true, url: 'https://www.gstatic.com/generate_204', interval: 300, proxy: DIRECT}}
+
+# 锚点 - 节点订阅
+proxy-providers:
+  tag:
+    url: 'tag_url'
+    <<: *NodeParam
+    override:
+      additional-prefix: 'tag '
+    path: './proxy_provider/tag.yaml'
+  wd:
+    url: 'wd_url'
+    <<: *NodeParam
+    override:
+      additional-prefix: 'wd '
+    path: './proxy_provider/wd.yaml'
+
+# 锚点 - 节点筛选组
+FilterHK: &FilterHK '(?i)^(?=.*(🇭🇰|香港|(\b(HK|Hong)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterTW: &FilterTW '(?i)^(?=.*(🇹🇼|台湾|(\b(TW|Tai|Taiwan)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterJP: &FilterJP '(?i)^(?=.*(🇯🇵|日本|川日|东京|大阪|泉日|埼玉|(\b(JP|Japan)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterKR: &FilterKR '(?i)^(?=.*(🇰🇷|韩国|韓|首尔|(\b(KR|Korea)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterSG: &FilterSG '(?i)^(?=.*(🇸🇬|新加坡|狮|(\b(SG|Singapore)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterUS: &FilterUS '(?i)^(?=.*(🇺🇸|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|(\b(US|United States)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterUK: &FilterUK '(?i)^(?=.*(🇬🇧|英国|伦敦|(\b(UK|United Kingdom)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterFR: &FilterFR '(?i)^(?=.*(🇫🇷|法国|(\b(FR|France)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterDE: &FilterDE '(?i)^(?=.*(🇩🇪|德国|(\b(DE|Germany)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterAI: &FilterAI '(?i)^(?=.*(🇹🇼|台湾|(\b(TW|Tai|Taiwan)(\d+)?\b)|🇯🇵|日本|川日|东京|大阪|泉日|埼玉|(\b(JP|Japan)(\d+)?\b)|🇸🇬|新加坡|狮|(\b(SG|Singapore)(\d+)?\b)|🇺🇸|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|(\b(US|United States)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterAll: &FilterAll '(?i)^(?=.*(.))(?!.*(群|邀请|返利|循环|官网|客服|网站|网址|获取|订阅|流量|到期|机场|下次|版本|官址|备用|过期|已用|联系|邮箱|工单|贩卖|通知|倒卖|防止|国内|地址|频道|无法|说明|使用|提示|特别|访问|支持|教程|关注|更新|作者|加入|(\b(USE|USED|TOTAL|EXPIRE|EMAIL|Panel|Channel|Author)(\d+)?\b|(\d{4}-\d{2}-\d{2}|\dG)))).*$'
+
+# 策略组参数锚点
+# 锚点 - 故障转移参数 [每 180 秒一次惰性健康检查，时延超过 2 秒判定为失败，失败 3 次则自动触发健康检查]
+FallBack: &FallBack {type: fallback, interval: 180, lazy: true, url: 'https://www.gstatic.com/generate_204', disable-udp: false, timeout: 2000, max-failed-times: 3, hidden: true, use: [tag, wd]}
+# 锚点 - 手动选择参数
+HandSelect: &HandSelect {type: select, use: [tag, wd]}
+# 锚点 - 规则参数 [每天更新一次订阅规则，更新规则时使用直连策略]
+RuleSet: &RuleSet {type: http, behavior: classical, interval: 86400, format: yaml, proxy: DIRECT}
+
+# 策略组
+proxy-groups:
+  - {name: Proxy, type: select, proxies: [🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点, ☛全局手动选择策略组], icon: 'https://raw.githubusercontent.com/pompurin404/mihomo-party/master/resources/icon.png'}
+  - {name: Apple, type: select, proxies: [DIRECT, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple_1.png'}
+  - {name: AI, <<: *HandSelect, filter: *FilterAI, icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/ChatGPT.png'}
+  - {name: Claude, <<: *HandSelect, filter: *FilterAI, icon: 'https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/claude.svg'}
+  - {name: Telegram, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png'}
+  - {name: Netflix, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Netflix.png'}
+  - {name: Disney+, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Disney.png'}
+  - {name: TikTok, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/TikTok.png'}
+  - {name: Spotify, type: select, proxies: [DIRECT, Proxy, 🇭🇰 香港节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png'}
+  - {name: Bahamut, type: select, proxies: [🇨🇳 台湾节点, 🇭🇰 香港节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Bahamut.png'}
+  - {name: Microsoft, type: select, proxies: [DIRECT, Proxy, 🇭🇰 香港节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png'}
+  - {name: GlobalMedia, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/ForeignMedia.png'}
+  - {name: 🍃 应用净化, type: select, proxies: [REJECT, DIRECT]}
+  - {name: 🛑 广告拦截, type: select, proxies: [REJECT, DIRECT]}
+  - {name: 🇭🇰 香港节点, <<: *HandSelect, filter: *FilterHK, proxies: [🚥香港故障转移策略组]}
+  - {name: 🇨🇳 台湾节点, <<: *HandSelect, filter: *FilterTW, proxies: [🚥台湾故障转移策略组]}
+  - {name: 🇯🇵 日本节点, <<: *HandSelect, filter: *FilterJP, proxies: [🚥日本故障转移策略组]}
+  - {name: 🇰🇷 韩国节点, <<: *HandSelect, filter: *FilterKR, proxies: [🚥韩国故障转移策略组]}
+  - {name: 🇸🇬 新加坡节点, <<: *HandSelect, filter: *FilterSG, proxies: [🚥新国故障转移策略组]}
+  - {name: 🇺🇸 美国节点, <<: *HandSelect, filter: *FilterUS, proxies: [🚥美国故障转移策略组]}
+  - {name: 🇬🇧 英国节点, <<: *HandSelect, filter: *FilterUK, proxies: [🚥英国故障转移策略组]}
+  - {name: 🇫🇷 法国节点, <<: *HandSelect, filter: *FilterFR, proxies: [🚥法国故障转移策略组]}
+  - {name: 🇩🇪 德国节点, <<: *HandSelect, filter: *FilterDE, proxies: [🚥德国故障转移策略组]}
+  - {name: ☛全局手动选择策略组, <<: *HandSelect, filter: *FilterAll}
+
+# 故障转移策略组
+  - {name: 🚥香港故障转移策略组, <<: *FallBack, filter: *FilterHK}
+  - {name: 🚥台湾故障转移策略组, <<: *FallBack, filter: *FilterTW}
+  - {name: 🚥日本故障转移策略组, <<: *FallBack, filter: *FilterJP}
+  - {name: 🚥韩国故障转移策略组, <<: *FallBack, filter: *FilterKR}
+  - {name: 🚥新国故障转移策略组, <<: *FallBack, filter: *FilterSG}
+  - {name: 🚥美国故障转移策略组, <<: *FallBack, filter: *FilterUS}
+  - {name: 🚥英国故障转移策略组, <<: *FallBack, filter: *FilterUK}
+  - {name: 🚥法国故障转移策略组, <<: *FallBack, filter: *FilterFR}
+  - {name: 🚥德国故障转移策略组, <<: *FallBack, filter: *FilterDE}
+
+# 规则匹配
+# 此规则部分没有做防泄露处理，因为弊严重大于利！
+rules:
+  - DOMAIN-SUFFIX,day.app,DIRECT
+  - RULE-SET,private_domain,DIRECT
+  - DOMAIN-SUFFIX,asmr-300.com,☛全局手动选择策略组
+  - DOMAIN-SUFFIX,asmr-200.com,☛全局手动选择策略组
+  - DOMAIN-SUFFIX,asmr-100.com,☛全局手动选择策略组
+  - DOMAIN-SUFFIX,asmr.one,☛全局手动选择策略组
+  - DOMAIN-SUFFIX,comipo.app,☛全局手动选择策略组
+  - RULE-SET,dlsite,☛全局手动选择策略组
+  - RULE-SET,httpdns,🍃 应用净化
+  - RULE-SET,ads,🛑 广告拦截
+  - RULE-SET,AWAvenue,🛑 广告拦截
+  - RULE-SET,AppStore,DIRECT
+  - RULE-SET,applemusic_domain,DIRECT
+  - RULE-SET,appletv_domain,DIRECT
+  - RULE-SET,apple_domain,Apple
+  - RULE-SET,spotify_domain,Spotify
+  - RULE-SET,anthropic,Claude
+  - RULE-SET,ai,AI
+  - RULE-SET,proxylite,Proxy
+  - RULE-SET,github_domain,Proxy
+  - RULE-SET,google_domain,Proxy
+  - RULE-SET,onedrive_domain,Microsoft
+  - RULE-SET,microsoft_domain,Microsoft
+  - RULE-SET,tiktok_domain,TikTok
+  - RULE-SET,speedtest_domain,Proxy
+  - RULE-SET,telegram_domain,Telegram
+  - RULE-SET,netflix_domain,Netflix
+  - RULE-SET,disney_domain,Disney+
+  - RULE-SET,hbo_domain,GlobalMedia
+  - RULE-SET,primevideo_domain,GlobalMedia
+  - RULE-SET,bahamut_domain,Bahamut
+  - RULE-SET,paypal_domain,Proxy
+  # 国服游戏：必须在 gfw / geolocation-!cn 之前直连，避免登录与对局被代理
+  - RULE-SET,games_cn,DIRECT
+  - DOMAIN-SUFFIX,tencentgames.com,DIRECT
+  - RULE-SET,gfw_domain,Proxy
+  - RULE-SET,geolocation-!cn,Proxy
+  - RULE-SET,oc-cn-domain,DIRECT
+  - RULE-SET,private_ip,DIRECT,no-resolve
+  - RULE-SET,google_ip,Proxy,no-resolve
+  - RULE-SET,netflix_ip,Netflix,no-resolve
+  - RULE-SET,telegram_ip,Telegram,no-resolve
+  - RULE-SET,cn_ip,DIRECT
+  - MATCH,Proxy
+
+# 规则集
+rule-anchor:
+  ip: &ip {type: http, interval: 86400, behavior: ipcidr, format: mrs, proxy: Proxy}
+  domain: &domain {type: http, interval: 86400, behavior: domain, format: mrs, proxy: Proxy}
+  class: &class {type: http, interval: 86400, behavior: classical, format: text, proxy: Proxy}
+rule-providers:
+  dlsite: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/dlsite.mrs"}
+  private_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"}
+  httpdns: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-httpdns-cn.mrs"}
+  ads: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs"}
+  AWAvenue: { <<: *domain, url: "https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Clash.mrs"}
+  proxylite: { <<: *class, url: "https://raw.githubusercontent.com/qichiyuhub/rule/refs/heads/main/rules/proxy.list"}
+  ai: {  <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs" }
+  anthropic: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/anthropic.mrs"}
+  spotify_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/spotify.mrs"}
+  google_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs"}
+  applemusic_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo-lite/geosite/applemusic.mrs"}
+  appletv_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/apple-tvplus.mrs"}
+  apple_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/apple-cn.mrs"}
+  github_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs"}
+  telegram_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs"}
+  netflix_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/netflix.mrs"}
+  disney_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/disney.mrs"}
+  hbo_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/hbo.mrs"}
+  primevideo_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/primevideo.mrs"}
+  bahamut_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/bahamut.mrs"}
+  paypal_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/paypal.mrs"}
+  onedrive_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/onedrive.mrs"}
+  microsoft_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/microsoft.mrs"}
+  speedtest_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/ookla-speedtest.mrs"}
+  tiktok_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/tiktok.mrs"}
+  gfw_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/gfw.mrs"}
+  geolocation-!cn: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/geolocation-!cn.mrs"}
+  oc-cn-domain: {type: http, interval: 43200, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.mrs", path: "./rule_provider/oc-cn-domain.mrs"}
+  # 游戏中国区域与下载域名；腾讯游戏由 oc-cn-domain / tencentgames.com 补充
+  games_cn: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-games@cn.mrs"}
+
+  private_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/private.mrs"}
+  cn_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/cn.mrs"}
+  google_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/google.mrs"}
+  telegram_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/telegram.mrs"}
+  netflix_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/netflix.mrs"}
+
+  AppStore:
+    <<: *RuleSet
+    url: 'https://rule.kelee.one/Clash/AppStore.yaml'
+    path: './RuleSet/AppStore.yaml'

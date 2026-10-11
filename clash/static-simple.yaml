@@ -1,3 +1,6 @@
+# Mihomo 通用模板：保留游戏和 ASMR 分流，TUN 接管由客户端设置。
+# 使用前将 tag_url / wd_url 替换为 Clash YAML 节点订阅地址。
+
 port: 7890
 socks-port: 7891
 mixed-port: 7892
@@ -13,7 +16,6 @@ etag-support: true
 geo-auto-update: false
 geo-update-interval: 24
 tcp-concurrent: true
-# 路由器场景官方推荐 off：转发的是其它设备的流量，本机无对应进程可查
 find-process-mode: 'off'
 global-client-fingerprint: chrome
 
@@ -34,7 +36,6 @@ geox-url:
 
 profile:
   store-selected: true
-  # 路由器 flash 擦写寿命有限，fake-ip 映射变化频繁，不落盘
   store-fake-ip: false
 
 sniffer:
@@ -68,22 +69,6 @@ sniffer:
     - Mijia Cloud
     - dlg.io.mi.com
 
-tun:
-  enable: true
-  stack: system
-  dns-hijack:
-    - any:53
-    - tcp://any:53
-  auto-route: true
-  # 由 nftables 在内核完成 TCP 重定向，弱 CPU 路由器上显著降负载
-  # 同时它是下方 route-exclude-address-set 生效的前提条件
-  auto-redirect: true
-  auto-detect-interface: true
-  strict-route: true
-  mtu: 9000
-  route-exclude-address: [127.0.0.1/32, 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 224.0.0.0/4, 169.254.0.0/16, "::/127", "fe80::/10", "ff00::/8"]
-  route-exclude-address-set: [private_ip]
-
 dns:
   enable: true
   cache-algorithm: arc
@@ -114,16 +99,9 @@ dns:
     - https://doh.pub/dns-query
     - https://dns.cloudflare.com/dns-query
   fake-ip-filter:
-    # 国服游戏必须拿真 IP：假 IP + UDP 对局极易无法进服
+    # 游戏例外返回真实 IP，保留已有的游戏兼容设置
     - "rule-set:private_domain,cn_domain,games_cn"
-    - "+.lol.qq.com"
-    - "+.lol.secure.qq.com"
-    - "+.wegame.com"
-    - "+.wegame.qq.com"
     - "+.tencentgames.com"
-    - "+.riotgames.com"
-    - "+.pvp.net"
-    - "+.leagueoflegends.com"
     - "+.msftconnecttest.com"
     - "+.msftncsi.com"
     - "time.*.com"
@@ -153,45 +131,32 @@ proxy-providers:
     path: './proxy_provider/wd.yaml'
 
 # 锚点 - 节点筛选组
-FilterHK: &FilterHK '^(?=.*((?i)🇭🇰|香港|(\b(HK|Hong)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterTW: &FilterTW '^(?=.*((?i)🇹🇼|台湾|(\b(TW|Tai|Taiwan)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterJP: &FilterJP '^(?=.*((?i)🇯🇵|日本|川日|东京|大阪|泉日|埼玉|(\b(JP|Japan)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterKR: &FilterKR '^(?=.*((?i)🇰🇷|韩国|韓|首尔|(\b(KR|Korea)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterSG: &FilterSG '^(?=.*((?i)🇸🇬|新加坡|狮|(\b(SG|Singapore)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterUS: &FilterUS '^(?=.*((?i)🇺🇸|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|(\b(US|United States)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterUK: &FilterUK '^(?=.*((?i)🇬🇧|英国|伦敦|(\b(UK|United Kingdom)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterFR: &FilterFR '^(?=.*((?i)🇫🇷|法国|(\b(FR|France)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterDE: &FilterDE '^(?=.*((?i)🇩🇪|德国|(\b(DE|Germany)(\d+)?\b)))(?!.*((?i)回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
-FilterGame: &FilterGame '^(?=.*((?i)游戏|🎮|(\b(GAME)(\d+)?\b)))(?!.*((?i)回国|校园)).*$'
-FilterAll: &FilterAll '^(?=.*(.))(?!.*((?i)群|邀请|返利|循环|官网|客服|网站|网址|获取|订阅|流量|到期|机场|下次|版本|官址|备用|过期|已用|联系|邮箱|工单|贩卖|通知|倒卖|防止|国内|地址|频道|无法|说明|使用|提示|特别|访问|支持|教程|关注|更新|作者|加入|(\b(USE|USED|TOTAL|EXPIRE|EMAIL|Panel|Channel|Author)(\d+)?\b|(\d{4}-\d{2}-\d{2}|\dG)))).*$'
+FilterHK: &FilterHK '(?i)^(?=.*(🇭🇰|香港|(\b(HK|Hong)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterTW: &FilterTW '(?i)^(?=.*(🇹🇼|台湾|(\b(TW|Tai|Taiwan)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterJP: &FilterJP '(?i)^(?=.*(🇯🇵|日本|川日|东京|大阪|泉日|埼玉|(\b(JP|Japan)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterKR: &FilterKR '(?i)^(?=.*(🇰🇷|韩国|韓|首尔|(\b(KR|Korea)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterSG: &FilterSG '(?i)^(?=.*(🇸🇬|新加坡|狮|(\b(SG|Singapore)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterUS: &FilterUS '(?i)^(?=.*(🇺🇸|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|(\b(US|United States)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterUK: &FilterUK '(?i)^(?=.*(🇬🇧|英国|伦敦|(\b(UK|United Kingdom)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterFR: &FilterFR '(?i)^(?=.*(🇫🇷|法国|(\b(FR|France)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterDE: &FilterDE '(?i)^(?=.*(🇩🇪|德国|(\b(DE|Germany)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterAI: &FilterAI '(?i)^(?=.*(🇹🇼|台湾|(\b(TW|Tai|Taiwan)(\d+)?\b)|🇯🇵|日本|川日|东京|大阪|泉日|埼玉|(\b(JP|Japan)(\d+)?\b)|🇸🇬|新加坡|狮|(\b(SG|Singapore)(\d+)?\b)|🇺🇸|美国|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|(\b(US|United States)(\d+)?\b)))(?!.*(回国|校园|游戏|🎮|(\b(GAME)\b))).*$'
+FilterAll: &FilterAll '(?i)^(?=.*(.))(?!.*(群|邀请|返利|循环|官网|客服|网站|网址|获取|订阅|流量|到期|机场|下次|版本|官址|备用|过期|已用|联系|邮箱|工单|贩卖|通知|倒卖|防止|国内|地址|频道|无法|说明|使用|提示|特别|访问|支持|教程|关注|更新|作者|加入|(\b(USE|USED|TOTAL|EXPIRE|EMAIL|Panel|Channel|Author)(\d+)?\b|(\d{4}-\d{2}-\d{2}|\dG)))).*$'
 
 # 策略组参数锚点
 # 锚点 - 故障转移参数 [每 180 秒一次惰性健康检查，时延超过 2 秒判定为失败，失败 3 次则自动触发健康检查]
-FallBack: &FallBack {type: fallback, interval: 180, lazy: true, url: 'https://www.gstatic.com/generate_204', disable-udp: false, timeout: 2000, max-failed-times: 3, hidden: true, include-all-providers: true}
+FallBack: &FallBack {type: fallback, interval: 180, lazy: true, url: 'https://www.gstatic.com/generate_204', disable-udp: false, timeout: 2000, max-failed-times: 3, hidden: true, use: [tag, wd]}
 # 锚点 - 手动选择参数
-HandSelect: &HandSelect {type: select, include-all-providers: true}
+HandSelect: &HandSelect {type: select, use: [tag, wd]}
 # 锚点 - 规则参数 [每天更新一次订阅规则，更新规则时使用直连策略]
 RuleSet: &RuleSet {type: http, behavior: classical, interval: 86400, format: yaml, proxy: DIRECT}
 
-# 住宅出口：填写真实地址、端口和账号后使用；先经 Dialer-Res 中转。
-proxies:
-  - name: SG_Residential
-    type: http
-    server: "<HOST>"
-    port: 0  # 必须替换为住宅代理的实际端口
-    username: "<USERNAME>"
-    password: "<PASSWORD>"
-    dialer-proxy: Dialer-Res
-
 # 策略组
 proxy-groups:
-  # 复用地区组的 FilterSG / FilterTW / FilterJP / FilterUS 筛选规则。
-  - name: Dialer-Res
-    type: select
-    proxies: [🇸🇬 新加坡节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇺🇸 美国节点]
   - {name: Proxy, type: select, proxies: [🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点, ☛全局手动选择策略组], icon: 'https://raw.githubusercontent.com/pompurin404/mihomo-party/master/resources/icon.png'}
-  - {name: GitHub, type: select, proxies: [SG_Residential, Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/GitHub.png'}
   - {name: Apple, type: select, proxies: [DIRECT, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple_1.png'}
+  - {name: AI, <<: *HandSelect, filter: *FilterAI, icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/ChatGPT.png'}
+  - {name: Claude, <<: *HandSelect, filter: *FilterAI, icon: 'https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/claude.svg'}
   - {name: Telegram, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png'}
   - {name: Netflix, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Netflix.png'}
   - {name: Disney+, type: select, proxies: [Proxy, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇬🇧 英国节点, 🇫🇷 法国节点, 🇩🇪 德国节点], icon: 'https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Disney.png'}
@@ -230,8 +195,10 @@ proxy-groups:
 rules:
   - DOMAIN-SUFFIX,day.app,DIRECT
   - RULE-SET,private_domain,DIRECT
-  - RULE-SET,stripe_domain,SG_Residential
-  - DOMAIN-KEYWORD,asmr,☛全局手动选择策略组
+  - DOMAIN-SUFFIX,asmr-300.com,☛全局手动选择策略组
+  - DOMAIN-SUFFIX,asmr-200.com,☛全局手动选择策略组
+  - DOMAIN-SUFFIX,asmr-100.com,☛全局手动选择策略组
+  - DOMAIN-SUFFIX,asmr.one,☛全局手动选择策略组
   - DOMAIN-SUFFIX,comipo.app,☛全局手动选择策略组
   - RULE-SET,dlsite,☛全局手动选择策略组
   - RULE-SET,httpdns,🍃 应用净化
@@ -242,12 +209,12 @@ rules:
   - RULE-SET,applemusic_domain,DIRECT
   - RULE-SET,appletv_domain,DIRECT
   - RULE-SET,apple_domain,Apple
-  - RULE-SET,github_domain,GitHub
-  - RULE-SET,anthropic,SG_Residential
-  - RULE-SET,ai,SG_Residential
+  - RULE-SET,anthropic,Claude
   - RULE-SET,proxylite,Proxy
+  - RULE-SET,ai,AI
+  - RULE-SET,github_domain,Proxy
   - RULE-SET,youtube_domain,YouTube
-  - RULE-SET,google_domain,SG_Residential
+  - RULE-SET,google_domain,Proxy
   - RULE-SET,onedrive_domain,Microsoft
   - RULE-SET,microsoft_domain,Microsoft
   - RULE-SET,tiktok_domain,TikTok
@@ -261,19 +228,12 @@ rules:
   - RULE-SET,paypal_domain,Proxy
   # 国服游戏：必须在 gfw / geolocation-!cn 之前直连，避免登录与对局被代理
   - RULE-SET,games_cn,DIRECT
-  - DOMAIN-SUFFIX,lol.qq.com,DIRECT
-  - DOMAIN-SUFFIX,lol.secure.qq.com,DIRECT
-  - DOMAIN-SUFFIX,wegame.com,DIRECT
-  - DOMAIN-SUFFIX,wegame.qq.com,DIRECT
   - DOMAIN-SUFFIX,tencentgames.com,DIRECT
-  - DOMAIN-SUFFIX,riotgames.com,DIRECT
-  - DOMAIN-SUFFIX,pvp.net,DIRECT
-  - DOMAIN-SUFFIX,leagueoflegends.com,DIRECT
   - RULE-SET,gfw_domain,Proxy
   - RULE-SET,geolocation-!cn,Proxy
   - RULE-SET,cn_domain,DIRECT
   - RULE-SET,private_ip,DIRECT,no-resolve
-  - RULE-SET,google_ip,SG_Residential,no-resolve
+  - RULE-SET,google_ip,Proxy,no-resolve
   - RULE-SET,netflix_ip,Netflix,no-resolve
   - RULE-SET,telegram_ip,Telegram,no-resolve
   - RULE-SET,cn_ip,DIRECT
@@ -285,14 +245,13 @@ rule-anchor:
   domain: &domain {type: http, interval: 86400, behavior: domain, format: mrs, proxy: Proxy}
   class: &class {type: http, interval: 86400, behavior: classical, format: text, proxy: Proxy}
 rule-providers:
-  stripe_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/stripe.mrs"}
   dlsite: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/dlsite.mrs"}
   private_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"}
   httpdns: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-httpdns-cn.mrs"}
   ads: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs"}
   AWAvenue: { <<: *domain, url: "https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Clash.mrs"}
   proxylite: { <<: *class, url: "https://raw.githubusercontent.com/qichiyuhub/rule/refs/heads/main/rules/proxy.list"}
-  ai: {  <<: *domain, url: "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/meta/geo/geosite/category-ai-!cn.mrs" }
+  ai: {  <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs" }
   anthropic: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/anthropic.mrs"}
   youtube_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"}
   spotify_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/spotify.mrs"}
@@ -315,7 +274,7 @@ rule-providers:
   gfw_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/gfw.mrs"}
   geolocation-!cn: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/geolocation-!cn.mrs"}
   cn_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.mrs"}
-  # 国内游戏（含腾讯系/国服客户端域名）
+  # 游戏中国区域与下载域名；腾讯游戏由 cn_domain / tencentgames.com 补充
   games_cn: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-games@cn.mrs"}
 
   private_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/private.mrs"}
