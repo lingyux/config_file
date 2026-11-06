@@ -156,7 +156,8 @@
     "optimistic": {
       "enabled": true
     },
-    "reverse_mapping": true
+    "reverse_mapping": true,
+    "timeout": "5s"
   },
   "outbounds": [
     {
@@ -1218,7 +1219,11 @@
       ],
       "stack": "system",
       "auto_route": true,
-      "auto_redirect": true
+      "auto_redirect": true,
+      "route_exclude_address": [
+        "223.5.5.5/32",
+        "223.6.6.6/32"
+      ]
     },
     {
       "tag": "mixed-in",
@@ -1231,7 +1236,8 @@
     "cache_file": {
       "enabled": true,
       "path": "/etc/sing-box/cache.db",
-      "store_dns": true
+      "store_dns": true,
+      "store_fakeip": true
     },
     "clash_api": {
       "external_controller": "0.0.0.0:9095",
@@ -1250,7 +1256,7 @@
   },
   "log": {
     "disabled": false,
-    "level": "info",
+    "level": "warn",
     "timestamp": true
   }
 }

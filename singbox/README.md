@@ -35,7 +35,7 @@
 
 Momo 仅内核模式跳过它的混入及透明接管脚本，DNS、TUN、端口和密钥以 JSON 为准。启用前停用其他透明代理，避免端口和接管冲突。
 
-路由器使用 dnsmasq 时，核对上游 DNS 并按需转发到 `127.0.0.1#1053`。面板地址为 `http://路由器IP:9095/ui/`，核心完成初始化后才提供服务。只有一个 Clash API 面板入口，没有独立的 9090 API 服务。
+路由器使用 dnsmasq 时，将其上游转发到 `127.0.0.1#1053`，关闭 dnsmasq 的额外 DNS 缓存、强制最短 TTL 及自身 DNS 劫持，由 sing-box 负责缓存和透明 DNS 接管。不要将核心返回的 1 秒 Fake-IP TTL 强制延长至 1 小时。面板地址为 `http://路由器IP:9095/ui/`，核心完成初始化后才提供服务。只有一个 Clash API 面板入口，没有独立的 9090 API 服务。
 
 ## 分组与分流
 
@@ -52,13 +52,61 @@ Momo 仅内核模式跳过它的混入及透明接管脚本，DNS、TUN、端口
 - Rule 模式下，APNs、国服游戏、固定直连的 AppStore/Apple Music/Apple TV 使用阿里 DNS 返回真实 IP。
 - Google DoH 经代理，节点域名使用阿里 DNS 解析。
 - 保留 IPv4 策略、8192 条缓存、乐观缓存、evaluate 和响应判断。
-- Fake-IP 地址段为 `198.19.0.0/16`。
+- Fake-IP 地址段为 `198.19.0.0/16`，启用 `store_fakeip` 持久化映射，避免核心重启后客户端仍持有旧地址而核心丢失对应域名。
+- 单次 DNS 查询默认超时 5 秒；单条规则可覆盖此值。
+- `223.5.5.5/32`、`223.6.6.6/32` 从 TUN 接管中排除，供直连 DNS 和独立上游连通性检测使用。
 
 AppStore 使用 2026-10-29 的内嵌两域名快照（`apps.apple.com`、`itunes.apple.com`），不自动更新；其他远程规则集按配置更新。
+
+## 长期运行与故障恢复
+
+以下是 Momo / dnsmasq 的 UCI 设置，不会因为导入 JSON 而自动生效。先备份 `/etc/config/momo`、`/etc/config/dhcp` 和私有配置，再在适用此模板的仅内核环境中设置：
+
+```sh
+uci set momo.procd.rlimit_nofile_soft='65535'
+uci set momo.procd.rlimit_nofile_hard='65535'
+uci set momo.log.clear_at_stop='0'
+uci set momo.log.scheduled_clear_size_limit='8'
+uci set momo.log.scheduled_clear_size_limit_unit='MB'
+uci set dhcp.@dnsmasq[0].noresolv='1'
+uci -q delete dhcp.@dnsmasq[0].server
+uci add_list dhcp.@dnsmasq[0].server='127.0.0.1#1053'
+uci set dhcp.@dnsmasq[0].cachesize='0'
+uci set dhcp.@dnsmasq[0].min_cache_ttl='0'
+uci -q delete dhcp.@dnsmasq[0].use_stale_cache
+uci set dhcp.@dnsmasq[0].dns_redirect='0'
+uci commit momo
+uci commit dhcp
+/etc/init.d/momo restart
+/etc/init.d/dnsmasq restart
+```
+
+模板日志级别为 `warn`。提高文件描述符上限可避免全网代理共用默认的约 4096 个描述符限制；正常连接、UDP 会话和数据转发管道均会占用描述符。`store_dns` 与 `store_fakeip` 是不同选项，前者不能替代后者。
+
+[momo-health.sh](./momo-health.sh) 可作为仅内核模式的恢复兜底。将脚本复制到 `/usr/libexec/momo-health` 并设置权限 `700`，在 `/etc/crontabs/root` 中添加一次：
+
+```cron
+* * * * * /usr/libexec/momo-health #singbox-core-health
+```
+
+随后运行 `/etc/init.d/cron restart`。注释不能包含 `#momo`，否则会被 Momo 重启时的定时任务清理逻辑删除。
+
+- 每分钟检测国内 HTTPS 和本机 7890 代理，各有两个候选站点。
+- 启动后等待至少 2 分钟；两条路径连续 3 次均失败才考虑恢复。
+- 恢复前通过排除 TUN 的阿里 DNS 地址验证上游 TLS 可达；上游同样失败时不重启。
+- 先保存核心日志、系统日志、路由、nftables 和资源用量，再重启 Momo；重启间隔至少 15 分钟。仅某一条路径失败时不重启。
+- 仅在指定配置 `file:singbox-simple-ref1nd.json` 启用且运行方式为仅内核时执行恢复；手动停用服务后不拉起服务。
+- 日志在 `/tmp/momo-health/health.log`，最近 3 次故障现场在同目录的 `incident-*` 中。均在内存盘，设备重启后清空；现场可能包含访问域名/IP，请勿直接公开提交。
+
+手动只检测、不触发重启：`/usr/libexec/momo-health --check`。该检测覆盖路由器本机路径，仍需结合局域网客户端的实际访问判断透明接管是否正常。自动重启是恢复措施，不能替代故障原因定位。
+
+2026-11-01 排查时发现 dnsmasq 强制最短 TTL 为 3600 秒、Fake-IP 映射未持久化、核心描述符上限约 4096；已修正这些配置。此前故障日志在手动重启时被清空，尚不能将约 8 小时后断网归因于某一项，需结合后续现场及跨夜运行结果确认。
 
 ## 验证
 
 使用 `1.14.4-reF1nd` 检查配置语法；保留的远程规则集已检查下载及编译/反编译。填写真实订阅并准备引导数据后，曾通过不接管网络的完整核心初始化测试，确认 Zashboard 页面、脚本资源及带密钥的 API 可访问。
+
+2026-11-01 修正后，私有部署配置与运行配置均通过核心检查；局域网客户端实测国内 HTTPS 200、经代理的检测请求 204、面板 200，Fake-IP DNS TTL 为 1 秒。隔离实例验证了 Fake-IP 映射跨重启保留；恢复脚本用模拟故障验证了连续失败阈值、先记录再恢复、冷却时间、上游断网及仅代理失败时不重启。跨夜稳定性尚需后续运行验证。
 
 可自行执行：
 
